@@ -34,7 +34,7 @@
 
 # COMMAND ----------
 
-registration_id = "FILL_IN"
+registration_id = "1898866"
 
 # COMMAND ----------
 
@@ -65,8 +65,14 @@ registration_id = "FILL_IN"
 
 # COMMAND ----------
 
-# TODO
-# Use this cell to complete your solution
+# MAGIC %sql
+# MAGIC CREATE DATABASE IF NOT EXISTS dbacademy_txu_guidehouse_com_db; 
+# MAGIC USE dbacademy_txu_guidehouse_com_db;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SET user_db = dbacademy_txu_guidehouse_com_db
 
 # COMMAND ----------
 
@@ -97,7 +103,11 @@ reality_check_06_a()
 # COMMAND ----------
 
 # TODO
-# Use this cell to complete your solution
+from pyspark.sql.functions import count, col, desc
+# orders_df = sqlContext.sql('select * from orders')
+orders_df = spark.read.table(orders_table)
+question_1_results_table = "question_1_results"
+orders_df.groupBy("shipping_address_state").count().sort(desc("count")).createTempView(question_1_results_table)
 
 # COMMAND ----------
 
@@ -140,11 +150,25 @@ reality_check_06_b()
 # COMMAND ----------
 
 # TODO
-# Use this cell to complete your solution
+#line_items_df = sqlContext.sql('select * from line_items')
+line_items_df = spark.read.table(line_items_table)
+products_df = sqlContext.sql('select * from products')
+sales_reps_df = sqlContext.sql('select * from sales_reps')
+join_df = orders_df.join(line_items_df, line_items_df["order_id"]==orders_df["order_id"]).filter(orders_df["shipping_address_state"]=="NC").join(products_df, products_df["product_id"]==line_items_df["product_id"]).filter(products_df["color"]=="green").join(sales_reps_df, sales_reps_df["sales_rep_id"]==orders_df["sales_rep_id"]).filter(sales_reps_df["_error_ssn_format"]==True)
 
-ex_avg = 0 # FILL_IN
-ex_min = 0 # FILL_IN
-ex_max = 0 # FILL_IN
+from pyspark.sql.functions import avg, min, max
+join_df1 = join_df.select(avg('product_sold_price'), min('product_sold_price'), max('product_sold_price'))
+display(join_df1)
+join_df1.createOrReplaceTempView("question_2_results")
+question_2_results_table = "question_2_results"
+spark.sql('CREATE TEMP VIEW question_2_results_table AS SELECT * FROM question_2_results')
+
+
+# COMMAND ----------
+
+ex_avg = join_df1.first()[0] # FILL_IN
+ex_min = join_df1.first()[1] # FILL_IN
+ex_max = join_df1.first()[2] # FILL_IN
 
 # COMMAND ----------
 
@@ -189,7 +213,28 @@ reality_check_06_c(ex_avg, ex_min, ex_max)
 # COMMAND ----------
 
 # TODO
-# Use this cell to complete your solution
+best_sales_rep_df = orders_df.join(line_items_df, line_items_df["order_id"]==orders_df["order_id"]).join(products_df, products_df["product_id"]==line_items_df["product_id"]).join(sales_reps_df, sales_reps_df["sales_rep_id"]==orders_df["sales_rep_id"])
+best_sales_rep_df = best_sales_rep_df.withColumn("total_profit", (col("product_sold_price")-col("price"))*col("product_quantity"))
+
+# COMMAND ----------
+
+total_profit = best_sales_rep_df.groupBy("sales_rep_first_name", "sales_rep_last_name").sum("total_profit")
+display(total_profit)
+
+# COMMAND ----------
+
+one_row = total_profit.agg({"sum(total_profit)": "max"}).take(1)
+display(one_row)
+
+# COMMAND ----------
+
+final_df = total_profit.where(col('sum(total_profit)') == total_profit.agg({"sum(total_profit)": "max"}).collect()[0][0])
+
+# COMMAND ----------
+
+final_df.createOrReplaceTempView("question_3_results")
+question_3_results_table = "question_3_results"
+spark.sql('CREATE TEMP VIEW question_3_results_table AS SELECT * FROM question_3_results')
 
 # COMMAND ----------
 

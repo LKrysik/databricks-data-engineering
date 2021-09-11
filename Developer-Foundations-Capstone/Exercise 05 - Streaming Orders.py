@@ -157,11 +157,51 @@ display(dbutils.fs.ls(stream_path))
 
 # COMMAND ----------
 
-stream_order = spark.readStream.format("json").option("inferSchema", True).option("maxFilesPerTrigger", 1).load(stream_path)
+spark.sql("set spark.sql.streaming.schemaInference=true")
+stream_order = spark.readStream.format("json").option("maxFilesPerTrigger", 1).load(stream_path)
 
 # COMMAND ----------
 
 display(stream_order, streamName="display_raw")
+
+# COMMAND ----------
+
+from pyspark.sql.functions import current_timestamp, input_file_name, col
+stream_order = stream_order.withColumn("ingested_at", current_timestamp())
+stream_order = stream_order.withColumn("ingest_file_name", input_file_name())
+
+# COMMAND ----------
+
+stream_order = stream_order.select(col("submittedAt").cast("timestamp").alias("submitted_at"),
+                             col("orderId").cast("string").alias("order_id"),
+                             col("customerId").cast("string").alias("customer_id"),
+                             col("salesRepId").cast("string").alias("sales_rep_id"),
+                             col("shippingAddress.attention").cast("string").alias("shipping_address_attention"),
+                             col("shippingAddress.address").cast("string").alias("shipping_address_address"),
+                             col("shippingAddress.city").cast("string").alias("shipping_address_city"),
+                             col("shippingAddress.state").cast("string").alias("shipping_address_state"),
+                             col("shippingAddress.zip").cast("int").alias("shipping_address_zip"),
+                             col("ingest_file_name"),
+                             col("ingested_at"))
+
+# COMMAND ----------
+
+from pyspark.sql.functions import substring
+stream_order = stream_order.withColumn("submitted_yyyy_mm", substring('submitted_at', 1,7))
+
+# COMMAND ----------
+
+stream_order.printSchema()
+
+# COMMAND ----------
+
+dbutils.fs.rm(orders_checkpoint_path, True)
+
+# COMMAND ----------
+
+orders_table = "orders"
+stream_order.writeStream.format("delta").option("checkpointLocation", orders_checkpoint_path).partitionBy("submitted_yyyy_mm").outputMode("append").queryName(orders_table).table(orders_table)
+display(spark.sql("select * from orders"))
 
 # COMMAND ----------
 
@@ -175,6 +215,10 @@ display(stream_order, streamName="display_raw")
 # COMMAND ----------
 
 reality_check_05_b()
+
+# COMMAND ----------
+
+spark.sql("select * from orders").count()
 
 # COMMAND ----------
 
@@ -218,8 +262,40 @@ reality_check_05_b()
 
 # COMMAND ----------
 
-# TODO
+spark.sql("set spark.sql.streaming.schemaInference=true")
+stream_line_items = spark.readStream.format("json").option("maxFilesPerTrigger", 1).load(stream_path)# TODO
 # Use this cell to complete your solution
+
+# COMMAND ----------
+
+display(stream_line_items, streamName="display_raw_line_items")
+
+# COMMAND ----------
+
+from pyspark.sql.functions import current_timestamp, input_file_name, col
+stream_line_items = stream_line_items.withColumn("ingested_at", current_timestamp())
+stream_line_items = stream_line_items.withColumn("ingest_file_name", input_file_name())
+
+# COMMAND ----------
+
+from pyspark.sql.functions import explode
+stream_line_items = stream_line_items.withColumn("tmp", explode(col("products"))).select(
+                                             col("orderId").cast("string").alias("order_id"),
+                                             col("tmp.productId").cast("string").alias("product_id"),
+                                             col("tmp.quantity").cast("int").alias("product_quantity"),
+                                             col("tmp.soldPrice").cast("decimal(10,2)").alias("product_sold_price"),
+                                             col("ingest_file_name"),
+                                             col("ingested_at"))
+
+# COMMAND ----------
+
+dbutils.fs.rm(line_items_checkpoint_path, True)
+
+# COMMAND ----------
+
+line_items_table = "line_items"
+stream_line_items.writeStream.format("delta").option("checkpointLocation", line_items_checkpoint_path).outputMode("append").queryName(line_items_table).table(line_items_table)
+display(spark.sql("select * from line_items"))
 
 # COMMAND ----------
 

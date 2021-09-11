@@ -171,7 +171,7 @@ display(products_ing1)
 
 spark.sql('DROP TABLE IF EXISTS products')
 products_table = "products"
-products_ing1.write.format("delta").saveAsTable(products_table)
+products_ing1.write.format("delta").mode("overwrite").saveAsTable(products_table)
 
 # COMMAND ----------
 

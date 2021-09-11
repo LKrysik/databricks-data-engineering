@@ -81,6 +81,7 @@ registration_id = "1898866"
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC DROP DATABASE IF EXISTS dbacademy_txu_guidehouse_com_db CASCADE;
 # MAGIC CREATE DATABASE IF NOT EXISTS dbacademy_txu_guidehouse_com_db; 
 # MAGIC USE dbacademy_txu_guidehouse_com_db;
 
@@ -236,7 +237,12 @@ spark.sql('DROP TABLE IF EXISTS sales_rep_scd')
 # COMMAND ----------
 
 sales_reps_table = "sales_rep_scd"
-batched_orders3.write.format("delta").saveAsTable(sales_reps_table)
+batched_orders3.write.format("delta").mode("overwrite").saveAsTable(sales_reps_table)
+
+# COMMAND ----------
+
+sales_reps_table2 = "sales_reps"
+batched_orders3.write.format("delta").mode("overwrite").saveAsTable(sales_reps_table2)
 
 # COMMAND ----------
 
@@ -334,7 +340,7 @@ spark.sql('DROP TABLE IF EXISTS orders')
 # COMMAND ----------
 
 orders_table = "orders"
-batched_orders5.write.format("delta").partitionBy("submitted_yyyy_mm").saveAsTable(orders_table)
+batched_orders5.write.format("delta").mode("overwrite").partitionBy("submitted_yyyy_mm").saveAsTable(orders_table)
 
 # COMMAND ----------
 
@@ -384,7 +390,7 @@ reality_check_03_d()
 batched_orders6 = batched_orders.select(col("order_id"),
                                         col("product_id"),
                                         col("product_quantity").cast("int").alias("product_quantity"),
-                                        col("product_sold_price").cast("decimal(10,2)").alias("product_sold_price"),                                 
+                                        col("product_sold_price").cast("decimal(10,2)").alias("product_sold_price"),
                                         col("ingest_file_name"),
                                         col("ingested_at"))
 
@@ -392,7 +398,7 @@ batched_orders6 = batched_orders.select(col("order_id"),
 
 spark.sql('DROP TABLE IF EXISTS line_items')
 line_items_table = "line_items"
-batched_orders6.write.format("delta").saveAsTable(line_items_table)
+batched_orders6.write.format("delta").mode("overwrite").saveAsTable(line_items_table)
 
 # COMMAND ----------
 
